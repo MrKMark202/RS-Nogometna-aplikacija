@@ -159,6 +159,7 @@
     name: "Signup",
     components: {},
     data: () => ({
+      agreement: false,
       name: null,
       surname: null,
       email: null,
@@ -192,12 +193,49 @@
 		  },
 
       async signUp() {
-        let success = await Auth.signin(this.name, this.surname, this.date, this.email, this.password, this.profilna, this.pin);
-        console.log("Rezultat registracije:", success);
+        const payload = {
+          ime: this.name,
+          prezime: this.surname,
+          datumRodenja: this.date,
+          email: this.email,
+          password: this.password,
+          profilnaSlika: this.profilna,
+          pin: Number(this.pin),
+        };
 
-        if(success == true) {
-          this.clearFormData();
-          this.$router.push({path: "/Login"})
+        console.log("Signup payload:", payload);
+
+        try {
+          let success = await Auth.signin(
+            payload.ime,
+            payload.prezime,
+            payload.datumRodenja,
+            payload.email,
+            payload.password,
+            payload.profilnaSlika,
+            payload.pin
+          );
+
+          console.log("Rezultat registracije:", success);
+
+          if (success === true) {
+            this.clearFormData();
+            this.$router.push({ path: "/Login" });
+          }
+        } catch (err) {
+          console.error("Signup error:", err);
+
+          if (err.response) {
+            console.error("Status:", err.response.status);
+            console.error("Backend response RAW:", err.response.data);
+
+            // ✅ ovo ispiše točno koje polje fali
+            const detail = err.response.data?.detail;
+            console.error("Backend detail:", detail);
+            if (Array.isArray(detail)) {
+              detail.forEach((d, i) => console.error(`detail[${i}]`, d));
+            }
+          }
         }
       }
     }

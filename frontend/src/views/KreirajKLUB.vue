@@ -19,6 +19,8 @@
                 label="Izaberite ligu za koju kreirate klub!"
                 v-model="selectedLiga"
                 class="vselect"
+                item-text="naziv"
+                item-value="_id"
               ></v-select>
               <br><br>
             </div>
@@ -47,77 +49,85 @@
 </template>
 
 <script>
-  import axios from 'axios';
-  import { Auth } from '@/components/registracija'
+  import { Auth } from "@/components/registracija";
+  import ClubApi from "@/components/klub";
 
   export default {
     name: "CreateClub",
     data: () => ({
       auth: Auth.state,
+
       clubName: null,
       clubCountry: null,
       clubYear: null,
       clubGrb: null,
+
       ligas: [],
-      selectedLiga: '',
+      selectedLiga: "",
+
       form: false,
       isLoading: false,
       rules: {
-        required: v => !!v || 'This field is required'
+        required: v => !!v || "This field is required",
       },
     }),
 
-    mounted() {
-      this.dohvatiLige();
+    async mounted() {
+      await this.dohvatiLige();
     },
 
     methods: {
       clearFormData() {
-			  this.clubName = null;
-			  this.clubYear = null;
-			  this.clubCountry = null;
+        this.clubName = null;
+        this.clubYear = null;
+        this.clubCountry = null;
         this.clubGrb = null;
-        this.selectedLiga = '';
-		  },
+        this.selectedLiga = "";
+      },
 
       async dohvatiLige() {
         try {
           const userEmail = this.auth.userEmail;
-          const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/liga/dohvat?email=${userEmail}`);
-          if (response.status !== 200) {
-            throw new Error('Network response was not ok');
-          } 
-          this.ligas = response.data
+          if (!userEmail) {
+            console.warn("Nema userEmail u Auth.state");
+            return;
+          }
+
+          const leagues = await ClubApi.getLeaguesForSelect(userEmail);
+          this.ligas = leagues;
+
         } catch (error) {
-            console.error('Greška prilikom dohvaćanja liga:', error);
+          console.error("Greška prilikom dohvaćanja liga:", error);
         }
       },
 
       async kreirajKlub() {
-        let response = await axios.post("https://nogometna-aplikacija.onrender.com/api/klub/create", {
-          clubName: this.clubName,
-          clubYear: this.clubYear,
-          clubCountry: this.clubCountry,
-          clubGrb: this.clubGrb,
-          liga: this.selectedLiga,
-          userEmail: this.auth.userEmail
-        })
-        await this.kreirajTablicu();
-        this.clearFormData();
-      },
+        if (!this.auth.authenticated) {
+          window.alert("Moraš biti prijavljen.");
+          this.$router.push({ path: "/Login" });
+          return;
+        }
 
-      async kreirajTablicu() {
-        let response = await axios.post("https://nogometna-aplikacija.onrender.com/api/tablica/create", {
-          bodovi: 0,
-          postignutiPogodci: 0,
-          primljeniPogodci: 0,
-          odigranihDvoboja: 0,
-          liga: this.selectedLiga,
-          klub: this.clubName,
-          grbKlub: this.clubGrb,
-          userEmail: this.auth.userEmail
-        })
-      }
+        if (!this.selectedLiga) {
+          window.alert("Odaberi ligu.");
+          return;
+        }
+
+        const result = await ClubApi.createClub({
+          naziv: this.clubName,
+          godinaOsnivanja: this.clubYear,
+          drzava: this.clubCountry,
+          grbKluba: this.clubGrb,
+          ligaId: this.selectedLiga,
+          korisnikEmail: this.auth.userEmail
+        });
+
+        console.log("Create club result:", result);
+
+        if (result) {
+          this.clearFormData();
+        }
+      },
     },
   };
 </script>

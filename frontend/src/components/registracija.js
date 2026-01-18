@@ -1,121 +1,158 @@
-import axios from 'axios';
-import $router from '@/router'
+import axios from "axios";
+import $router from "@/router";
 
-let Service = axios.create({
-    baseURL: 'https://nogometna-aplikacija.onrender.com/',
-    timeout: 1000,
+const API_AUTH_BASE = process.env.VUE_APP_AUTH_API;
+
+// 1) Public instance (BEZ tokena, bez interceptora)
+const Public = axios.create({
+  baseURL: API_AUTH_BASE,
+  timeout: 5000,
+});
+
+// 2) Private instance (S tokenom)
+const Service = axios.create({
+  baseURL: API_AUTH_BASE,
+  timeout: 5000,
 });
 
 Service.interceptors.request.use((request) => {
-    let token = Auth.getToken()
+  const token = Auth.getToken();
+  if (token) {
+    request.headers["Authorization"] = "Bearer " + token;
+  }
+  return request;
+});
 
-    if (!token) {
-        $router.go();
-        return;
-    }
-    else {
-        request.headers["Authorization"] = 'Bearer' + token;
-    }
-
-    return request;
-})
-
-Service.interceptors.response.use((response) => response, (error) => {
+Service.interceptors.response.use(
+  (response) => response,
+  (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-        Auth.logout();
-        $router.go();
+      Auth.logout();
+      $router.push({ path: "/Login" });
     }
-})
+    return Promise.reject(error);
+  }
+);
 
 let Auth = {
-    async login(email, password) {
-        let response = await axios.post("https://nogometna-aplikacija.onrender.com/api/auth/login", {
-            email: email,
-            password: password,
-        })
+  async login(email, password) {
+    try {
+      const response = await axios.post(`${API_AUTH_BASE}/api/auth/login`,
+        { email, password }
+      );
 
-        let user = response.data;
+      const user = response.data;
+      localStorage.setItem("user", JSON.stringify(user));
+      return true;
 
-        localStorage.setItem('user', JSON.stringify(user));
+    } catch (err) {
+      const status = err.response?.status;
 
-        return true;
-    },
-
-    logout() {
-        localStorage.removeItem('user');
-    },
-
-    async signin(name, surname, date, email, password, profilna, pin) {
-        let response = await axios.post("https://nogometna-aplikacija.onrender.com/api/auth/signUp", {
-            ime: name,
-            prezime: surname,
-            datumRodenja: date,
-            email: email,
-            password: password,
-            profilna: profilna,
-            pin: pin
-        })
-
-        let user = response.data;
-
-        localStorage.setItem('user', JSON.stringify(user));
-
-        return true;
-    },
-
-    async passwordChange(email, newPassword, pin) {
-        let response = await axios.patch("https://nogometna-aplikacija.onrender.com/api/auth/passwordChange", {
-            email: email,
-            password: newPassword,
-            pin: pin
-        })
-
-        return true;
-    },
-
-    getUser() {
-        return JSON.parse(localStorage.getItem('user'));
-    },
-
-    getToken() {
-        let user = Auth.getUser();
-        if (user && user.token) {
-            return user.token;
-        }
-        else {
-            return false;
-        }
-    },
-
-    authenticated() {
-        let user = Auth.getUser();
-        if (user && user.token) {
-            return true
-        }
+      if (status === 401) {
+        window.alert("Neispravan email ili lozinka");
         return false;
-    },
+      }
 
-    state: {
-        get authenticated() {
-            return Auth.authenticated();
-        },
+      if (status === 422) {
+        window.alert("Neispravan unos podataka");
+        return false;
+      }
 
-        get userEmail() {
-            let user = Auth.getUser();
-
-            if (user) {
-                return user.email;
-            }
-        },
-
-        get userProfilePicture() {
-            let user = Auth.getUser();
-
-            if (user) {
-                return user.profilna;
-            }
-        }
+      window.alert("Došlo je do greške prilikom prijave");
+      return false;
     }
+  },
+
+  async signin(name, surname, date, email, password, profilna, pin) {
+    try {
+      const response = await axios.post(`${API_AUTH_BASE}/api/auth/signup`, {
+          ime: name,
+          prezime: surname,
+          datumRodenja: date,
+          email,
+          password,
+          profilnaSlika: profilna,
+          pin: Number(pin),
+        }
+      );
+
+      const user = response.data;
+      localStorage.setItem("user", JSON.stringify(user));
+      return true;
+
+    } catch (err) {
+      const status = err.response?.status;
+
+      if (status === 409) {
+        window.alert("Račun s ovim emailom već postoji");
+        return false;
+      }
+
+      if (status === 422) {
+        window.alert("Provjeri unesene podatke");
+        return false;
+      }
+
+      window.alert("Došlo je do greške prilikom registracije");
+      return false;
+    }
+  },
+
+  async passwordChange(email, newPassword, pin) {
+    try {
+      await Public.patch("/api/user/update/lozinka", {
+        email,
+        lozinka: newPassword,
+        pin: Number(pin),
+      });
+
+      return true;
+    } catch (err) {
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail;
+
+      // PIN ili validacija
+      if (status === 422) {
+        window.alert("Neispravan pin");
+        return false;
+      }
+
+      // korisnik ne postoji
+      if (status === 404) {
+        window.alert("Korisnik ne postoji");
+        return false;
+      }
+
+      // fallback
+      window.alert("Došlo je do greške. Pokušajte ponovno.");
+      return false;
+    }
+  },
+
+  logout() {
+    localStorage.removeItem("user");
+  },
+
+  getUser() {
+    return JSON.parse(localStorage.getItem("user"));
+  },
+
+  getToken() {
+    const user = Auth.getUser();
+    return user?.token || false;
+  },
+
+  state: {
+    get authenticated() {
+      return !!Auth.getToken();
+    },
+    get userEmail() {
+      return Auth.getUser()?.email;
+    },
+    get userProfilePicture() {
+      return Auth.getUser()?.profilna;
+    },
+  },
 };
 
-export {Service, Auth};
+export { Service, Public, Auth };

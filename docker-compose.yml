@@ -6,77 +6,138 @@ services:
     volumes:
       - mongo-data:/data/db
 
-  auth:
-    build: ./services/Auth
+  db-service:
+    build: ./db-service
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - MONGO_URI=${MONGO_URI}
+      - PORT=8000
+      - ENV=prod
     depends_on:
       - mongo
+    ports:
+      - "8000:8000"
+
+  auth-microservice:
+    build: ./auth-microservice
+    container_name: auth
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - DB_SERVICE_URL=${DB_SERVICE_URL}
+    depends_on:
+      - db-service
     ports:
       - "8001:8000"
 
-  league:
-    build: ./services/League
+  league-microservice:
+    build: ./league-microservice
+    container_name: league
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - MONGO_URI=${MONGO_URI}
+      - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
+      - VUE_APP_LEAGUE_API=${VUE_APP_LEAGUE_API}
     depends_on:
-      - mongo
+      - db-service
     ports:
       - "8002:8000"
 
-  club:
-    build: ./services/Club
+  club-microservice:
+    build: ./club-microservice
+    container_name: club
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - VUE_APP_CLUB_API=${VUE_APP_CLUB_API}
+      - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
+      - MONGO_URI=${MONGO_URI}
     depends_on:
-      - mongo
+      - db-service
     ports:
       - "8003:8000"
 
-  match:
-    build: ./services/Match
+  match-microservice:
+    build: ./match-microservice
+    container_name: match
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - MONGO_URI=${MONGO_URI}
     depends_on:
-      - mongo
+      - db-service
     ports:
       - "8004:8000"
 
   footballer:
-    build: ./services/Footballer
+    build: ./footballer-microservice
+    container_name: footballer
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - MONGO_URI=${MONGO_URI}
     depends_on:
       - mongo
     ports:
       - "8005:8000"
 
   transfers:
-    build: ./services/Transfers
+    build: ./transfers-microservice
+    container_name: transfers
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - MONGO_URI=${MONGO_URI}
     depends_on:
       - mongo
     ports:
       - "8006:8000"
 
   table:
-    build: ./services/Table
+    build: ./table-microservice
+    container_name: table
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - MONGO_URI=${MONGO_URI}
     depends_on:
       - mongo
     ports:
       - "8007:8000"
 
   match-review:
-    build: ./services/Match-review
+    build: ./match-review-microservice
+    container_name: match-review
+    env_file:
+      - .env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/football
+      - MONGO_URI=${MONGO_URI}
     depends_on:
       - mongo
     ports:
       - "8008:8000"
+  
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    env_file:
+      - .env
+    depends_on:
+      - auth-microservice
+      - db-service
+      - mongo
+      - league-microservice
+      - club-microservice
+      - match-microservice
+    ports:
+      - "8080:8080"
+    environment:
+      - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
+      - VUE_APP_LEAGUE_API=${VUE_APP_LEAGUE_API}
+      - VUE_APP_CLUB_API=${VUE_APP_CLUB_API}
 
 volumes:
   mongo-data:

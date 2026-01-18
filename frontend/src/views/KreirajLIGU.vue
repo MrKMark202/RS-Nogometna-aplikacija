@@ -26,15 +26,15 @@
                 style="background-color: green; color: white; margin-top:40px; margin-left: 85% !important;"
                 :disabled="!form"
                 :loading="isLoading"
-                @click="kreirajLigu()" 
+                @click="createLeague()" 
             >Kreiraj!</v-btn>
         </div>
     </div>
 </template>
 
 <script>
-    import { Auth } from '@/components/registracija'
-    import axios from 'axios'
+    import { Auth } from '@/components/registracija';
+    import LigaApi from "@/components/liga";
 
     export default {
         name: "createLIGA",
@@ -53,24 +53,41 @@
 
         methods: {
             clearFormData() {
-                this.ligaName = null;
-                this.ligaYear = null;
-                this.ligaCountry = null;
-                this.grbLige = null;
+            this.ligaName = null;
+            this.ligaYear = null;
+            this.ligaCountry = null;
+            this.grbLige = null;
             },
 
-           async kreirajLigu() {
-            	let response = await axios.post("https://nogometna-aplikacija.onrender.com/api/liga/create", {
-                    ligaName: this.ligaName,
-                    ligaYear: this.ligaYear,
-                    ligaCountry: this.ligaCountry,
-                    grbLige: this.grbLige,
-                    userEmail: this.auth.userEmail
-                })
+            async createLeague() {
+            if (!Auth.state.authenticated) {
+                alert("Moraš biti prijavljen");
+                this.$router.push({ path: "/Login" });
+                return;
+            }
 
+            console.log("Create league payload:", {
+                naziv: this.ligaName,
+                godinaOsnivanja: this.ligaYear,
+                drzava: this.ligaCountry,
+                grbLige: this.grbLige,
+                korisnikEmail: Auth.state.userEmail,
+            });
+
+            const success = await LigaApi.createLeague(
+                this.ligaName,
+                this.ligaYear,
+                this.ligaCountry,
+                this.grbLige
+            );
+
+            console.log("Rezultat kreiranja lige:", success);
+
+            if (success) {
                 this.clearFormData();
             }
-        }
+            },
+        },
     }
 </script>
 

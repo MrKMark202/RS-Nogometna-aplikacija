@@ -30,7 +30,7 @@
                     filled
                     color="black"
                     counter="6"
-                    label="Lozinka"
+                    label="Nova lozinka"
                     style="min-height: 100px"
                     type="password"
                 ></v-text-field>
