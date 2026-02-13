@@ -6,19 +6,6 @@ services:
     volumes:
       - mongo-data:/data/db
 
-  db-service:
-    build: ./db-service
-    env_file:
-      - .env
-    environment:
-      - MONGO_URI=${MONGO_URI}
-      - PORT=8000
-      - ENV=prod
-    depends_on:
-      - mongo
-    ports:
-      - "8000:8000"
-
   auth-microservice:
     build: ./auth-microservice
     container_name: auth
@@ -26,9 +13,8 @@ services:
       - .env
     environment:
       - MONGO_URI=${MONGO_URI}
-      - DB_SERVICE_URL=${DB_SERVICE_URL}
     depends_on:
-      - db-service
+      - mongo
     ports:
       - "8001:8000"
 
@@ -42,7 +28,7 @@ services:
       - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
       - VUE_APP_LEAGUE_API=${VUE_APP_LEAGUE_API}
     depends_on:
-      - db-service
+      - mongo
     ports:
       - "8002:8000"
 
@@ -56,7 +42,7 @@ services:
       - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
       - MONGO_URI=${MONGO_URI}
     depends_on:
-      - db-service
+      - mongo
     ports:
       - "8003:8000"
 
@@ -68,7 +54,7 @@ services:
     environment:
       - MONGO_URI=${MONGO_URI}
     depends_on:
-      - db-service
+      - mongo
     ports:
       - "8004:8000"
 
@@ -127,7 +113,6 @@ services:
       - .env
     depends_on:
       - auth-microservice
-      - db-service
       - mongo
       - league-microservice
       - club-microservice
