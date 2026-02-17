@@ -1,54 +1,56 @@
 import axios from "axios";
+import { Auth } from "@/components/registracija";
 
-// Base URL iz .env (preporuka)
-const API_CLUB_BASE = process.env.VUE_APP_CLUB_API;
-
-const Public = axios.create({
-  baseURL: API_CLUB_BASE,
+const ClubService = axios.create({
+  baseURL: process.env.VUE_APP_CLUB_API,
   timeout: 5000,
 });
 
+ClubService.interceptors.request.use((request) => {
+  const token = Auth.getToken();
+  if (token) {
+    request.headers.Authorization = `Bearer ${token}`;
+  }
+  return request;
+});
+
 const ClubApi = {
-  async getLeaguesForSelect(korisnikEmail) {
+  async getClubs(ligaId) {
     try {
-      const res = await Public.get("/api/club/leagues", {
-        params: { korisnikEmail },
+      const res = await ClubService.get("/api/club/dohvat", {
+        params: { ligaId }
       });
-      return res.data; // [{_id, naziv, ...}]
+      
+      return res.data;
     } catch (err) {
-      console.error("getLeaguesForSelect error:", err.response?.data || err.message);
-      window.alert("Ne mogu dohvatiti lige.");
+      alert("Ne mogu dohvatiti klubove");
       return [];
     }
   },
 
-  async createClub({ naziv, godinaOsnivanja, drzava, grbKluba, ligaId, korisnikEmail }) {
+  async createClub({ naziv, godinaOsnivanja, drzava, grbKluba, ligaId }) {
     try {
-      const payload = { naziv, godinaOsnivanja, drzava, grbKluba, ligaId, korisnikEmail };
+      const res = await ClubService.post("/api/club/create", {
+        naziv,
+        godinaOsnivanja,
+        drzava,
+        grbKluba,
+        ligaId,
+      });
 
-      console.log("Create club payload:", payload);
+      alert("Klub je uspješno kreiran ✅");
+      return res.data;
 
-      const res = await Public.post("/api/club/create", payload);
-      return res.data; // vrati kreirani dokument
     } catch (err) {
       const status = err.response?.status;
       const data = err.response?.data;
 
-      // Jednostavne, “user-friendly” poruke
-      if (status === 409) {
-        window.alert("Klub s tim nazivom već postoji.");
-        return false;
-      }
-      if (status === 404) {
-        window.alert(data?.detail || "Liga ili korisnik nije pronađen.");
-        return false;
-      }
-      if (status === 422) {
-        window.alert("Provjeri unos (neka polja su prazna ili liga nije odabrana).");
-        return false;
-      }
+      if (status === 409) return alert("Klub s tim nazivom već postoji."), false;
+      if (status === 404) return alert(data?.detail || "Liga nije pronađena."), false;
+      if (status === 401) return alert("Nisi prijavljen."), false;
+      if (status === 422) return alert("Provjeri unos podataka."), false;
 
-      window.alert("Greška pri kreiranju kluba.");
+      alert("Greška pri kreiranju kluba.");
       console.error("createClub error:", data || err.message);
       return false;
     }

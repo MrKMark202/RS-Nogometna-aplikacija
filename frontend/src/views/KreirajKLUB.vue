@@ -51,20 +51,17 @@
 <script>
   import { Auth } from "@/components/registracija";
   import ClubApi from "@/components/klub";
+  import LeagueApi from "@/components/liga";
 
   export default {
     name: "CreateClub",
     data: () => ({
-      auth: Auth.state,
-
       clubName: null,
       clubCountry: null,
       clubYear: null,
       clubGrb: null,
-
       ligas: [],
       selectedLiga: "",
-
       form: false,
       isLoading: false,
       rules: {
@@ -87,13 +84,13 @@
 
       async dohvatiLige() {
         try {
-          const userEmail = this.auth.userEmail;
+          const userEmail = Auth.state.userEmail;
           if (!userEmail) {
             console.warn("Nema userEmail u Auth.state");
             return;
           }
 
-          const leagues = await ClubApi.getLeaguesForSelect(userEmail);
+          const leagues = await LeagueApi.getLeagues();
           this.ligas = leagues;
 
         } catch (error) {
@@ -102,7 +99,7 @@
       },
 
       async kreirajKlub() {
-        if (!this.auth.authenticated) {
+        if (!Auth.state.authenticated) {
           window.alert("Moraš biti prijavljen.");
           this.$router.push({ path: "/Login" });
           return;
@@ -119,7 +116,7 @@
           drzava: this.clubCountry,
           grbKluba: this.clubGrb,
           ligaId: this.selectedLiga,
-          korisnikEmail: this.auth.userEmail
+          korisnikEmail: Auth.state.userEmail
         });
 
         console.log("Create club result:", result);

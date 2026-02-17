@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from db import db  # tvoj db.py gdje je `db = client.get_database()`
+from db import db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -36,6 +36,8 @@ def _create_jwt(payload: Dict[str, Any], secret: str, expires_in: timedelta) -> 
 
 
 def authenticate_token(email: str, password: str) -> Dict[str, Any]:
+    email = email.strip().lower()
+
     user_db = db.users.find_one({"email": email})
     if not user_db or "password" not in user_db:
         raise HTTPException(status_code=401, detail="Cannot authenticate")
@@ -43,19 +45,14 @@ def authenticate_token(email: str, password: str) -> Dict[str, Any]:
     if not compare_password(password, user_db["password"]):
         raise HTTPException(status_code=401, detail="Cannot authenticate")
 
-    # što vraćaš u tokenu (iz tvojih primjera)
     profilna = user_db.get("profilnaSlika")
     role = user_db.get("role")
 
-    # secret: koristi jedan env var (npr. JWT_SECRET)
     secret = os.getenv("JWT_SECRET") or os.getenv("TOKEN_SECRET")
     if not secret:
         raise RuntimeError("JWT_SECRET/TOKEN_SECRET is not set")
 
-    # expire: 1 hour ili 1 week (kako želiš)
     expires = timedelta(hours=1)
-    # ako želiš 1 tjedan, koristi:
-    # expires = timedelta(weeks=1)
 
     token = _create_jwt(
         payload={"email": email, "profilna": profilna, "role": role},
@@ -63,7 +60,6 @@ def authenticate_token(email: str, password: str) -> Dict[str, Any]:
         expires_in=expires,
     )
 
-    # Ne vraćaj password
     return {
         "token": token,
         "email": email,

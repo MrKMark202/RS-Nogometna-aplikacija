@@ -4,10 +4,10 @@ from typing import Annotated
 ObjectIdStr = Annotated[str, Field(pattern=r"^[a-fA-F0-9]{24}$")]
 
 class Match(BaseModel):
-    kolo: int
+    kolo: str
     stadionNaziv: str
     mjestoIgranja: str
-    gledateljiBroj: int
+    gledateljiBroj: str
     datum: str
     satUpisa: str
     domacinGol: int

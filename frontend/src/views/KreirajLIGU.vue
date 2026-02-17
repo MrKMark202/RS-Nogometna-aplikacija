@@ -39,7 +39,6 @@
     export default {
         name: "createLIGA",
         data: () => ({
-            auth : Auth.state,
             ligaName: null,
             ligaYear: null,
             ligaCountry: null,

@@ -1,29 +1,28 @@
 import axios from "axios";
 import $router from "@/router";
+import jwt_decode from "jwt-decode";
 
 const API_AUTH_BASE = process.env.VUE_APP_AUTH_API;
 
-// 1) Public instance (BEZ tokena, bez interceptora)
 const Public = axios.create({
   baseURL: API_AUTH_BASE,
   timeout: 5000,
 });
 
-// 2) Private instance (S tokenom)
-const Service = axios.create({
+const AuthService = axios.create({
   baseURL: API_AUTH_BASE,
   timeout: 5000,
 });
 
-Service.interceptors.request.use((request) => {
+AuthService.interceptors.request.use((request) => {
   const token = Auth.getToken();
   if (token) {
-    request.headers["Authorization"] = "Bearer " + token;
+    request.headers.Authorization = `Bearer ${token}`;
   }
   return request;
 });
 
-Service.interceptors.response.use(
+AuthService.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
@@ -37,63 +36,45 @@ Service.interceptors.response.use(
 let Auth = {
   async login(email, password) {
     try {
-      const response = await axios.post(`${API_AUTH_BASE}/api/auth/login`,
-        { email, password }
-      );
+      const response = await Public.post("/api/auth/login", {
+        email,
+        password,
+      });
 
-      const user = response.data;
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(response.data));
       return true;
-
     } catch (err) {
       const status = err.response?.status;
 
-      if (status === 401) {
-        window.alert("Neispravan email ili lozinka");
-        return false;
-      }
+      if (status === 401) return alert("Neispravan email ili lozinka"), false;
+      if (status === 422) return alert("Neispravan unos podataka"), false;
 
-      if (status === 422) {
-        window.alert("Neispravan unos podataka");
-        return false;
-      }
-
-      window.alert("Došlo je do greške prilikom prijave");
+      alert("Došlo je do greške prilikom prijave");
       return false;
     }
   },
 
   async signin(name, surname, date, email, password, profilna, pin) {
     try {
-      const response = await axios.post(`${API_AUTH_BASE}/api/auth/signup`, {
-          ime: name,
-          prezime: surname,
-          datumRodenja: date,
-          email,
-          password,
-          profilnaSlika: profilna,
-          pin: Number(pin),
-        }
-      );
+      const response = await Public.post("/api/auth/signup", {
+        ime: name,
+        prezime: surname,
+        datumRodenja: date,
+        email,
+        password,
+        profilnaSlika: profilna,
+        pin: Number(pin),
+      });
 
-      const user = response.data;
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(response.data));
       return true;
-
     } catch (err) {
       const status = err.response?.status;
 
-      if (status === 409) {
-        window.alert("Račun s ovim emailom već postoji");
-        return false;
-      }
+      if (status === 409) return alert("Račun s ovim emailom već postoji"), false;
+      if (status === 422) return alert("Provjeri unesene podatke"), false;
 
-      if (status === 422) {
-        window.alert("Provjeri unesene podatke");
-        return false;
-      }
-
-      window.alert("Došlo je do greške prilikom registracije");
+      alert("Došlo je do greške prilikom registracije");
       return false;
     }
   },
@@ -109,22 +90,11 @@ let Auth = {
       return true;
     } catch (err) {
       const status = err.response?.status;
-      const detail = err.response?.data?.detail;
 
-      // PIN ili validacija
-      if (status === 422) {
-        window.alert("Neispravan pin");
-        return false;
-      }
+      if (status === 422) return alert("Neispravan pin"), false;
+      if (status === 404) return alert("Korisnik ne postoji"), false;
 
-      // korisnik ne postoji
-      if (status === 404) {
-        window.alert("Korisnik ne postoji");
-        return false;
-      }
-
-      // fallback
-      window.alert("Došlo je do greške. Pokušajte ponovno.");
+      alert("Došlo je do greške. Pokušajte ponovno.");
       return false;
     }
   },
@@ -138,8 +108,7 @@ let Auth = {
   },
 
   getToken() {
-    const user = Auth.getUser();
-    return user?.token || false;
+    return Auth.getUser()?.token || null;
   },
 
   state: {
@@ -155,4 +124,4 @@ let Auth = {
   },
 };
 
-export { Service, Public, Auth };
+export { AuthService, Public, Auth };

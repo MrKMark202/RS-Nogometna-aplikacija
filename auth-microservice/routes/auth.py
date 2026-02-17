@@ -25,7 +25,6 @@ class LoginRequest(BaseModel):
 
 @router.post("/signup")
 def signup(payload: SignupRequest):
-    # unique email (Mongoose unique: true ekvivalent)
     if db.users.find_one({"email": payload.email}):
         raise HTTPException(status_code=409, detail="Email already exists")
 

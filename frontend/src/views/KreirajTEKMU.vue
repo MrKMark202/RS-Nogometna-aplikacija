@@ -59,11 +59,13 @@
                 <div>
                     <v-select
                         @change="dohvatiKlubove()"
+                        :rules="[rules.required]"
                         :items="lige"
                         label="Izaberite ligu za koju je utakmica namijenjena!"
                         v-model="izabranaLiga"
                         class="vselect"
-                        :rules="[rules.required]"
+                        item-text="naziv"
+                        item-value="_id"
                     ></v-select>
                     <br><br>
                 </div>
@@ -80,13 +82,15 @@
                                 v-model="domacin"
                                 @change="domaciDohvat"
                                 :rules="[rules.required]"
+                                item-text="naziv"
+                                item-value="_id"
                             ></v-select>
                             <br><br>
                         </div>
                     </v-col>
 
                     <v-col class="gol">
-                        <input :rules="[rules.required]" v-model="domacinGol" type="text" solo class="goll" maxlength="2"/>
+                        <input :rules="[rules.required]" v-model="domacinGol" solo class="goll" maxlength="2"/>
                     </v-col>
 
                     <v-col>
@@ -94,18 +98,20 @@
                     </v-col>
 
                     <v-col class="gol">
-                        <input :rules="[rules.required]" v-model="gostiGol" type="text" solo class="goll" maxlength="2"/>
+                        <input :rules="[rules.required]" v-model="gostiGol" solo class="goll" maxlength="2"/>
                     </v-col>
 
                     <v-col>
                         <div>
                             <h2 style="font-size: 30px; margin-bottom: 10px;">Gosti</h2>
                             <v-select
+                                :rules="[rules.required]"
                                 :items="domaciTim"
                                 label="Izaberi goste"
                                 v-model="gosti"
                                 @change="gostiDohvat"
-                                :rules="[rules.required]"
+                                item-text="naziv"
+                                item-value="_id"
                             ></v-select>
                             <br><br>
                         </div>
@@ -124,12 +130,13 @@
 </template>
 
 <script>
-    import axios from 'axios';
     import { Auth } from '@/components/registracija'
+    import LeagueApi from '@/components/liga';
+    import ClubApi from '@/components/klub';
+    import MatchApi from '@/components/utakmica';
 
     export default {
         data: () => ({
-        auth: Auth.state,
         form: false,
         isLoading: false,
         kolo: null,
@@ -191,14 +198,18 @@
 
             async dohvatiLige() {
                 try {
-                const userEmail = this.auth.userEmail;
-                const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/liga/dohvat?email=${userEmail}`);
-                if (response.status !== 200) {
-                    throw new Error('Network response was not ok');
-                } 
-                this.lige = response.data
+                const userEmail = Auth.state.userEmail;
+                if (!userEmail) {
+                    console.warn("Nema userEmail u Auth.state");
+                    return;
+                }
+
+                const leagues = await LeagueApi.getLeagues();
+                this.lige = leagues;
+                console.log(this.lige)
+
                 } catch (error) {
-                    console.error('Greška prilikom dohvaćanja liga:', error);
+                console.error("Greška prilikom dohvaćanja liga:", error);
                 }
             },
 
@@ -206,132 +217,59 @@
                 this.klubs=[];
                 this.domaciTim=[];
                 try {
-                    const userEmail = this.auth.userEmail;
-                    const userLiga = this.izabranaLiga;
-                    const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/klub/dohvat?email=${userEmail}&liga=${userLiga}`);
-                    if (response.status !== 200) {
-                        throw new Error('Network response was not ok');
-                    } 
-                    this.klubs = response.data
+                    if (!this.izabranaLiga) return;
+
+                    const clubs = await ClubApi.getClubs(this.izabranaLiga);
+
+                    this.klubs = clubs;
                     this.gostiTim = this.klubs;
+                    this.domaciTim = this.klubs;
+
                 } catch (error) {
                     console.error('Greška prilikom dohvaćanja klubova:', error);
                 }
             },
 
             domaciDohvat() {
-                this.domaciTim = this.klubs.filter((klub) => klub !== this.domacin);
+                this.domaciTim = this.klubs.filter(
+                    (klub) => klub._id !== this.domacin
+                );
             },
 
             gostiDohvat() {
-                this.gostiTim = this.klubs.filter((klub) => klub !== this.gosti);
+                this.gostiTim = this.klubs.filter(
+                    (klub) => klub._id !== this.gosti
+                );
             },
 
             async kreirajTekmu() {
                 this.trenutniDatum();
-                let response = await axios.post("https://nogometna-aplikacija.onrender.com/api/utakmica/create", {
+                if (!Auth.state.authenticated) {
+                    window.alert("Moraš biti prijavljen.");
+                    this.$router.push({ path: "/Login" });
+                    return;
+                }
+
+                const result = await MatchApi.createMatch({
                     kolo: this.kolo,
                     mjestoIgranja: this.mjestoIgranja,
-                    stadionName: this.stadionName,
+                    stadionNaziv: this.stadionName,
                     gledateljiBroj: this.gledateljiBroj,
                     datum: this.date,
                     satUpisa: this.satUpisa,
-                    izabranaLiga: this.izabranaLiga,
-                    Domacin: this.domacin,
-                    domacinGol: this.domacinGol,
-                    gostiGol: this.gostiGol,
-                    Gosti: this.gosti,
                     liga: this.izabranaLiga,
                     domacin: this.domacin,
                     gost: this.gosti,
-                    userEmail: this.auth.userEmail
-                })
+                    domacinGol: this.domacinGol,
+                    gostiGol: this.gostiGol
+                });
 
-                await this.domaciBodovi();
-                await this.gostiBodovi();
-                await this.dohvatTablicaDomacin();
-                await this.dohvatTablicaGosti();
-                this.clearFormData();
-            },
-
-            async dohvatTablicaDomacin() {
-                try {
-                    this.domacinData = [];
-                    const userEmail = this.auth.userEmail;
-                    const userLiga = this.izabranaLiga;
-                    const domacinKlub = this.domacin;
-                    const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/tablica/dohvat/domacin?email=${userEmail}&liga=${userLiga}&domacin=${domacinKlub}`);
-                    if (response.status !== 200) {
-                        throw new Error('Network response was not ok');
-                    } 
-                    this.domacinData = response.data;
-                    await this.updateTablicaDomacin();
-                } catch (error) {
-                    console.error('Greška prilikom ozvježivanja podataka za domaćina:', error);
+                if (result) {
+                    console.log("Create match result:", result);
+                    this.clearFormData();
                 }
             },
-
-            async domaciBodovi() {
-                this.domBod = 0;
-                if(this.domacinGol > this.gostiGol) {
-                    parseInt(this.domBod+=3);
-                }
-                else if(this.domacinGol == this.gostiGol) {
-                    parseInt(this.domBod+=1);
-                }
-            },
-
-            async updateTablicaDomacin() {
-                let response = await axios.patch("https://nogometna-aplikacija.onrender.com/api/tablica/update/domacin", {
-                    bodovi: parseInt(this.domacinData[0].bodovi) + parseInt(this.domBod),
-                    postignutiPogodci: parseInt(this.domacinData[0].postignutiPogodci) + parseInt(this.domacinGol),
-                    primljeniPogodci: parseInt(this.domacinData[0].primljeniPogodci) + parseInt(this.gostiGol),
-                    odigranihDvoboja: parseInt(this.domacinData[0].odigranihDvoboja) + parseInt(1),
-                    liga: this.izabranaLiga,
-                    klub: this.domacin,
-                    korisnik: this.auth.userEmail
-                })
-            },
-
-            async dohvatTablicaGosti() {
-                try {
-                    this.gostiData = [];
-                    const userEmail = this.auth.userEmail;
-                    const userLiga = this.izabranaLiga;
-                    const gostKlub = this.gosti;
-                    const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/tablica/dohvat/gost?email=${userEmail}&liga=${userLiga}&gost=${gostKlub}`);
-                    if (response.status !== 200) {
-                        throw new Error('Network response was not ok');
-                    } 
-                    this.gostiData = response.data;
-                    await this.updateTablicaGosti();
-                } catch (error) {
-                    console.error('Greška prilikom ozvježivanja podataka za goste:', error);
-                }
-            },
-
-            async gostiBodovi() {
-                this.gosBod = 0;
-                if(this.gostiGol > this.domacinGol) {
-                    parseInt(this.gosBod+=3);
-                }
-                else if(this.domacinGol == this.gostiGol) {
-                    parseInt(this.gosBod+=1);
-                }
-            },
-
-            async updateTablicaGosti() {
-                let response = await axios.patch("https://nogometna-aplikacija.onrender.com/api/tablica/update/gost", {
-                    bodovi: parseInt(this.gostiData[0].bodovi) + parseInt(this.gosBod),
-                    postignutiPogodci: parseInt(this.gostiData[0].postignutiPogodci) + parseInt(this.gostiGol),
-                    primljeniPogodci: parseInt(this.gostiData[0].primljeniPogodci) + parseInt(this.domacinGol),
-                    odigranihDvoboja: parseInt(this.gostiData[0].odigranihDvoboja) + parseInt(1),
-                    liga: this.izabranaLiga,
-                    klub: this.gosti,
-                    korisnik: this.auth.userEmail
-                })
-            },
-        },
+        }
     };
 </script>
 

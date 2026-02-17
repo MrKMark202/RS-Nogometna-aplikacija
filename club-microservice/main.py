@@ -26,10 +26,11 @@ def startup_db_check():
         raise RuntimeError("MONGO_URI is not set")
 
     db.command("ping")
-    db.club.create_index("naziv", unique=True)
-    db.club.create_index("korisnik")
+    db.clubs.create_index([("naziv", 1), ("korisnikEmail", 1)], unique=True)
+    db.clubs.create_index("korisnikEmail")
 
     print("club-microservice connected to MongoDB")
+
 
 app.include_router(club_router, prefix="/api/club")
 

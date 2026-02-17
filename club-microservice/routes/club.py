@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, EmailStr, Field
-from typing import List, Optional
-
-from db import db
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
+from typing import Optional
 from bson import ObjectId
 
+from db import db
+from utils import verify_token
 
 router = APIRouter(tags=["club"])
 
@@ -19,28 +19,23 @@ def _oid(value: str) -> ObjectId:
 
 def _serialize(doc: dict) -> dict:
     doc["_id"] = str(doc["_id"])
-    # pretvori reference ako postoje
     if "liga" in doc and isinstance(doc["liga"], ObjectId):
         doc["liga"] = str(doc["liga"])
-    if "korisnik" in doc and isinstance(doc["korisnik"], ObjectId):
-        doc["korisnik"] = str(doc["korisnik"])
     return doc
 
 
 # ---------- Request modeli ----------
 
 class CreateClubRequest(BaseModel):
-    naziv: str = Field(min_length=1)
-    godinaOsnivanja: str = Field(min_length=1)
-    drzava: str = Field(min_length=1)
-    grbKluba: str = Field(min_length=1)
-    ligaId: str = Field(min_length=24, max_length=24)
-    korisnikEmail: EmailStr
+    naziv: str
+    godinaOsnivanja: str
+    drzava: str
+    grbKluba: str
+    ligaId: str
 
 
 class DeleteClubRequest(BaseModel):
-    clubId: str = Field(min_length=24, max_length=24)
-    korisnikEmail: EmailStr
+    clubId: str
 
 
 # ---------- Routes ----------
@@ -49,42 +44,23 @@ class DeleteClubRequest(BaseModel):
 def health():
     return {"service": "club", "status": "ok"}
 
-
-@router.get("/leagues")
-def get_leagues_for_select(korisnikEmail: EmailStr = Query(...)):
-    """
-    Vrati lige za korisnika (da ih koristiš u <select>).
-    """
-    user = db.users.find_one({"email": str(korisnikEmail)})
-    if not user:
-        raise HTTPException(status_code=404, detail="Korisnik nije pronađen")
-
-    cursor = db.leagues.find({"korisnik": user["_id"]}).sort("naziv", 1)
-    leagues = []
-    for l in cursor:
-        leagues.append({
-            "_id": str(l["_id"]),
-            "naziv": l.get("naziv"),
-            "drzava": l.get("drzava"),
-            "grbLige": l.get("grbLige"),
-        })
-    return leagues
-
-
 @router.post("/create")
-def create_club(payload: CreateClubRequest):
-    user = db.users.find_one({"email": str(payload.korisnikEmail)})
-    if not user:
-        raise HTTPException(status_code=404, detail="Korisnik nije pronađen")
+def create_club(payload: CreateClubRequest, user=Depends(verify_token)):
+    email = user["email"]
 
     liga_oid = _oid(payload.ligaId)
 
-    liga = db.leagues.find_one({"_id": liga_oid, "korisnik": user["_id"]})
+    liga = db.leagues.find_one({
+        "_id": liga_oid,
+        "korisnikEmail": email
+    })
     if not liga:
         raise HTTPException(status_code=404, detail="Liga nije pronađena")
 
-    # unique: naziv kluba po korisniku (da može drugi korisnik imati isti naziv)
-    existing = db.clubs.find_one({"naziv": payload.naziv, "korisnik": user["_id"]})
+    existing = db.clubs.find_one({
+        "naziv": payload.naziv,
+        "korisnikEmail": email
+    })
     if existing:
         raise HTTPException(status_code=409, detail="Klub s tim nazivom već postoji")
 
@@ -94,37 +70,41 @@ def create_club(payload: CreateClubRequest):
         "drzava": payload.drzava,
         "grbKluba": payload.grbKluba,
         "liga": liga_oid,
-        "korisnik": user["_id"],
+        "korisnikEmail": email,
     }
 
     res = db.clubs.insert_one(doc)
-    created = db.clubs.find_one({"_id": res.inserted_id})
+    klub_id = res.inserted_id
+
+    db.tablica.insert_one({
+        "liga": liga_oid,
+        "klub": klub_id,
+        "korisnikEmail": email,
+        "bodovi": 0,
+        "postignutiPogodci": 0,
+        "primljeniPogodci": 0,
+        "odigranihDvoboja": 0
+    })
+
+    created = db.clubs.find_one({"_id": klub_id})
     return _serialize(created)
 
 
 @router.get("/dohvat")
-def get_clubs(korisnikEmail: EmailStr = Query(...), ligaId: Optional[str] = None):
-    user = db.users.find_one({"email": str(korisnikEmail)})
-    if not user:
-        raise HTTPException(status_code=404, detail="Korisnik nije pronađen")
+def get_clubs(ligaId: Optional[str] = None, user=Depends(verify_token)):
+    email = user["email"]
 
-    q = {"korisnik": user["_id"]}
+    q = {"korisnikEmail": email}
     if ligaId:
         q["liga"] = _oid(ligaId)
 
     cursor = db.clubs.find(q).sort("naziv", 1)
-
-    clubs = []
-    for c in cursor:
-        clubs.append(_serialize(c))
-    return clubs
+    return [_serialize(c) for c in cursor]
 
 
 @router.delete("/delete")
-def delete_club(payload: DeleteClubRequest):
-    user = db.users.find_one({"email": str(payload.korisnikEmail)})
-    if not user:
-        raise HTTPException(status_code=404, detail="Korisnik nije pronađen")
+def delete_club(payload: DeleteClubRequest, user=Depends(verify_token)):
+    email = user["email"]
 
     club_oid = _oid(payload.clubId)
 
@@ -132,7 +112,7 @@ def delete_club(payload: DeleteClubRequest):
     if not club:
         raise HTTPException(status_code=404, detail="Klub nije pronađen")
 
-    if club.get("korisnik") != user["_id"]:
+    if club.get("korisnikEmail") != email:
         raise HTTPException(status_code=403, detail="Nemaš pravo brisati ovaj klub")
 
     db.clubs.delete_one({"_id": club_oid})
