@@ -46,7 +46,7 @@ def health():
 
 @router.post("/create")
 def create_club(payload: CreateClubRequest, user=Depends(verify_token)):
-    email = user["email"]
+    email = user["email"].lower().strip()
 
     liga_oid = _oid(payload.ligaId)
 
@@ -76,9 +76,11 @@ def create_club(payload: CreateClubRequest, user=Depends(verify_token)):
     res = db.clubs.insert_one(doc)
     klub_id = res.inserted_id
 
-    db.tablica.insert_one({
+    db.tables.insert_one({
         "liga": liga_oid,
         "klub": klub_id,
+        "nazivKluba": payload.naziv,
+        "grbKlub": payload.grbKluba,
         "korisnikEmail": email,
         "bodovi": 0,
         "postignutiPogodci": 0,
@@ -108,12 +110,21 @@ def delete_club(payload: DeleteClubRequest, user=Depends(verify_token)):
 
     club_oid = _oid(payload.clubId)
 
-    club = db.clubs.find_one({"_id": club_oid})
+    club = db.clubs.find_one({
+        "_id": club_oid,
+        "korisnikEmail": email
+    })
+
     if not club:
         raise HTTPException(status_code=404, detail="Klub nije pronađen")
 
-    if club.get("korisnikEmail") != email:
-        raise HTTPException(status_code=403, detail="Nemaš pravo brisati ovaj klub")
+    # obriši tablicu tog kluba
+    db.tables.delete_many({
+        "klub": club_oid,
+        "korisnikEmail": email
+    })
 
+    # obriši klub
     db.clubs.delete_one({"_id": club_oid})
+
     return {"result": True}

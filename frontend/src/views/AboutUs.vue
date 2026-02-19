@@ -9,7 +9,7 @@
       <p>
         Ovo je web aplikacija koja vam omogućava kreiranje raznih klubova i liga, razne utakmice koje su se dogodile, te obrada sveukupnog rezultata.
         Kreirate ligu, klubove u toj ligi, te utakmice i na kraju upisa svih traženih podataka za utakmicu će se obraditi konačni rezultat.
-        Ukoliko pogresite u pravljenju lige, kluba ili utakmice, imate mogućnost brisanja istoga.
+        Ukoliko pogriješite u pravljenju lige, kluba ili utakmice, imate mogućnost brisanja istoga.
       </p>
     </div>
   </div>

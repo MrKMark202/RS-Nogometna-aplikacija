@@ -15,6 +15,7 @@ MatchService.interceptors.request.use((request) => {
 });
 
 const MatchApi = {
+
   async createMatch({
     kolo,
     mjestoIgranja,
@@ -50,7 +51,57 @@ const MatchApi = {
       console.log(err.response?.data);
       return false;
     }
+  },
+
+  async getMatch(ligaId) {
+    try {
+      const res = await MatchService.get("/api/match/dohvat", {
+        params: { ligaId }
+      });
+
+      return res.data;
+
+    } catch (err) {
+      console.log("Greška kod dohvaćanja utakmica:", err.response?.data);
+      return [];
+    }
+  },
+
+  async deleteMatch({ liga, domacin, gost, kolo }) {
+    try {
+      const res = await MatchService.patch("/api/match/delete", {
+        liga,
+        domacin,
+        gost,
+        kolo,
+      });
+
+      return res.data;
+    } catch (err) {
+      console.log(err.response?.data);
+      return false;
+    }
+  },
+
+  async getSingleMatch({ liga, domacin, gost, kolo }) {
+  try {
+    const res = await MatchService.get("/api/match/one", {
+      params: {
+        liga,
+        domacin,
+        gost,
+        kolo
+      }
+    });
+
+    return res.data;
+
+  } catch (err) {
+    console.log(err.response?.data);
+    return null;
   }
+},
+
 };
 
 export default MatchApi;

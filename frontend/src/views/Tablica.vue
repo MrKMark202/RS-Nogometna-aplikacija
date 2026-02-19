@@ -2,8 +2,8 @@
     <div>
       <div data-app class="obrub1">
         <v-row >
-          <v-col cols="2" v-if="ligaGrb">
-            <v-img :src="ligaGrb[0]" class="image-box"></v-img>
+          <v-col cols="2" v-if="selectedLigaObj">
+            <v-img :src="selectedLigaObj.grbLige" class="image-box"></v-img>
           </v-col>
           
           <v-col cols="4" >
@@ -22,7 +22,9 @@
             v-model="selectedLiga"
             style="width: 350px;"
             :items="ligas"
-            @change="dohvatiKlubove(), dohvatiGrbLige()"
+            @change="dohvatiKlubove(), dohvatiTablicu()"
+            item-text="naziv"
+            item-value="_id"
           ></v-select>
 
           <v-select
@@ -31,6 +33,8 @@
             v-model="selectedKlub"
             style="width: 350px;"
             :items="klubs"
+            item-text="naziv"
+            item-value="_id"
           ></v-select>
         </div>
                 
@@ -64,18 +68,17 @@
 </template>
 
 <script>
-
-  import axios from 'axios';
   import { Auth } from '@/components/registracija'
+  import LeagueApi from '@/components/liga';
+  import ClubApi from '@/components/klub';
+  import TableApi from "@/components/tablica";
 
   export default {
     data () {
       return {
-        auth: Auth.state,
         search: '',
         selectedLiga: '',
         selectedKlub: '',
-        ligaGrb: '',
         headers: [
             { text: 'Pozicija', value: 'pz'},
             { text: 'Grb', value: 'grb'},
@@ -92,152 +95,87 @@
         ],
         podaci: [],
         ligas: [],
-        klubs:[],
+        klubs: [],
       }
     },
 
-    mounted() {
-      this.dohvatiLige()
+    async mounted() {
+      this.ligas = await LeagueApi.getLeagues();
+    },
+
+    computed: {
+      selectedLigaObj() {
+        return this.ligas.find(l => l._id === this.selectedLiga)
+      }
     },
 
     methods: {
-      async dohvatiLige() {
-        try {
-          const userEmail = this.auth.userEmail;
-          const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/liga/dohvat?email=${userEmail}`);
-          if (response.status !== 200) {
-            throw new Error('Network response was not ok');
-          } 
-          this.ligas = response.data
-        } catch (error) {
-            console.error('Greška prilikom dohvaćanja liga:', error);
-        }
-      },
-
-      async dohvatiGrbLige() {
-        try {
-          const userEmail = this.auth.userEmail;
-          const liga = this.selectedLiga;
-          const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/liga/dohvat/grb?email=${userEmail}&liga=${liga}`);
-          if (response.status !== 200) {
-            throw new Error('Network response was not ok');
-          } 
-          this.ligaGrb = response.data;
-        } catch (error) {
-            console.error('Greška prilikom dohvaćanja liga:', error);
-        }
-      },
-
 
       async dohvatiKlubove() {
         this.klubs=[];
         try {
-          const userEmail = this.auth.userEmail;
-          const userLiga = this.selectedLiga;
-          const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/klub/dohvat?email=${userEmail}&liga=${userLiga}`);
-          if (response.status !== 200) {
-            throw new Error('Network response was not ok');
-        } 
-          this.klubs = response.data
-          this.dohvatiTablicu();
+          if (!this.selectedLiga) return;
+
+          const clubs = await ClubApi.getClubs(this.selectedLiga);
+
+          this.klubs = clubs;
         } catch (error) {
           console.error('Greška prilikom dohvaćanja klubova:', error);
         }
       },
 
       async dohvatiTablicu() {
-        this.datas = [];
-        try {
-          const userEmail = this.auth.userEmail;
-          const userLiga = this.selectedLiga;
-          const response = await axios.get(`https://nogometna-aplikacija.onrender.com/api/tablica/dohvat?email=${userEmail}&liga=${userLiga}`);
-          if (response.status !== 200) {
-            throw new Error('Network response was not ok');
-          } 
-          this.datas = response.data;
-          this.dohvatiPodatkeTablice();
-        } catch (error) {
-          console.error('Greška prilikom dohvaćanja podataka tablice', error);
-        }
-      },
+        if (!this.selectedLiga) return;
 
-      async dohvatiPodatkeTablice() {
-        this.podaci = [];
-        const sortedDatas = [...this.datas];
-        sortedDatas.sort((a, b) => {
-          return b.bodovi - a.bodovi;
-        });
-        
-        sortedDatas.forEach((item, index) => {
-          this.podaci.push({
-            pz: index + 1,
-            grb: item.grbKlub,
-            nt: item.klub,
-            od: item.odigranihDvoboja,
-            pp: item.postignutiPogodci,
-            pg: item.primljeniPogodci,
-            gr: item.postignutiPogodci - item.primljeniPogodci,
-            bd: item.bodovi,
-          });
-        });
+        const datas = await TableApi.getTable(this.selectedLiga);
+
+        const sorted = [...datas].sort((a, b) => b.bodovi - a.bodovi);
+
+        this.podaci = sorted.map((item, index) => ({
+          pz: index + 1,
+          grb: item.grbKlub,
+          nt: item.klub,
+          od: item.odigranihDvoboja,
+          pp: item.postignutiPogodci,
+          pg: item.primljeniPogodci,
+          gr: item.postignutiPogodci - item.primljeniPogodci,
+          bd: item.bodovi,
+        }));
       },
 
       async deleteLiga() {
-
-        if(!this.selectedLiga) {
-          alert("Prvo izaberite ligu");
+        if (!this.selectedLiga) {
+          alert("Prvo izaberi ligu.");
+          return;
         }
-        else {
-          try {
-            if(confirm("Jeste li sigurni da želite izbridati ligu")) {
-              const response = await axios.patch(`https://nogometna-aplikacija.onrender.com/api/liga/delete`, {
-                ligaName: this.selectedLiga,
-                userEmail: this.auth.userEmail
-              });
-              await this.deleteKlub();
-              console.log('Document deleted successfully');
-              window.location.reload();
-            }
-          } catch (error) {
-            console.error('Error deleting document:', error);
-          }
+
+        if (!confirm("Jesi siguran da želiš obrisati ligu?")) return;
+
+        const result = await LeagueApi.deleteLeague(this.selectedLiga);
+
+        if (result) {
+          alert("Liga je uspješno obrisana ✅");
+          this.selectedLiga = "";
+          location.reload();
         }
       },
 
       async deleteKlub() {
+        if (!this.selectedKlub) {
+          alert("Izaberi klub.");
+          return;
+        }
 
-        if(!this.selectedLiga) {
-          alert("Prvo izaberite ligu da bi ste mogli klub!");
-        }
-        
-        else if(this.selectedLiga && !this.selectedKlub) {
-          alert("Izaberite klub!");
-        }
-        else {
-          try {
-            if(confirm("Jeste li sigurni da želite izbrisati klub")) {
-              const response = await axios.patch(`https://nogometna-aplikacija.onrender.com/api/klub/delete`, {
-                ligaName: this.selectedLiga,
-                userEmail: this.auth.userEmail,
-                clubName: this.selectedKlub
-              });
-              await this.deleteTablica();
-              console.log('Document deleted successfully');
-              window.location.reload();
-            }
-          } catch (error) {
-            console.error('Error deleting document:', error);
-          }
+        if (!confirm("Jesi siguran da želiš obrisati klub?")) return;
+
+        const result = await ClubApi.deleteClub(this.selectedKlub);
+
+        if (result) {
+          alert("Klub je uspješno obrisan ✅");
+          this.selectedKlub = "";
+          await this.dohvatiKlubove();
         }
       },
-
-      async deleteTablica() {
-        const response = await axios.patch(`https://nogometna-aplikacija.onrender.com/api/tablica/delete`, {
-          ligaName: this.selectedLiga,
-          userEmail: this.auth.userEmail,
-          clubName: this.selectedKlub
-        });
-      }
     }
   }
 </script>

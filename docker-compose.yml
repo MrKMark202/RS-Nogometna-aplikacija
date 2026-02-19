@@ -45,6 +45,16 @@ services:
     ports:
       - "8004:8000"
 
+  table-microservice:
+    build: ./table-microservice
+    container_name: table
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=${MONGO_URI}
+    ports:
+      - "8005:8000"
+      
   footballer:
     build: ./footballer-microservice
     container_name: footballer
@@ -53,7 +63,7 @@ services:
     environment:
       - MONGO_URI=${MONGO_URI}
     ports:
-      - "8005:8000"
+      - "8007:8000"
 
   transfers:
     build: ./transfers-microservice
@@ -64,26 +74,6 @@ services:
       - MONGO_URI=${MONGO_URI}
     ports:
       - "8006:8000"
-
-  table:
-    build: ./table-microservice
-    container_name: table
-    env_file:
-      - .env
-    environment:
-      - MONGO_URI=${MONGO_URI}
-    ports:
-      - "8007:8000"
-
-  match-review:
-    build: ./match-review-microservice
-    container_name: match-review
-    env_file:
-      - .env
-    environment:
-      - MONGO_URI=${MONGO_URI}
-    ports:
-      - "8008:8000"
   
   frontend:
     build: ./frontend
@@ -95,9 +85,11 @@ services:
       - league-microservice
       - club-microservice
       - match-microservice
+      - table-microservice
     ports:
       - "8080:8080"
     environment:
       - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
       - VUE_APP_LEAGUE_API=${VUE_APP_LEAGUE_API}
       - VUE_APP_CLUB_API=${VUE_APP_CLUB_API}
+      - VUE_APP_TABLE_API=${VUE_APP_TABLE_API}

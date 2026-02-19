@@ -21,6 +21,11 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    
+class UpdatePasswordRequest(BaseModel):
+    email: EmailStr
+    lozinka: str = Field(min_length=6, max_length=72)
+    pin: int = Field(ge=0, le=99999)
 
 
 @router.post("/signup")
@@ -45,3 +50,26 @@ def login(payload: LoginRequest):
 @router.get("/me")
 def me(user=Depends(require_user)):
     return {"user": user}
+
+
+@router.patch("/update/lozinka/reset")
+def update_lozinka_reset(payload: UpdatePasswordRequest):
+
+    user_db = db.users.find_one({
+        "email": payload.email.strip().lower()
+    })
+
+    if not user_db:
+        raise HTTPException(404, "Korisnik nije pronađen")
+
+    if int(user_db.get("pin", -1)) != payload.pin:
+        raise HTTPException(401, "Neispravan PIN")
+
+    hashed = password_hash(payload.lozinka)
+
+    db.users.update_one(
+        {"_id": user_db["_id"]},
+        {"$set": {"password": hashed}}
+    )
+
+    return {"result": True}

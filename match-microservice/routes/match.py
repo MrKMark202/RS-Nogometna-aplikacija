@@ -38,6 +38,12 @@ class CreateMatchRequest(BaseModel):
     gost: str
     domacinGol: int = Field(ge=0)
     gostiGol: int = Field(ge=0)
+    
+class DeleteMatchRequest(BaseModel):
+    liga: str
+    domacin: str
+    gost: str
+    kolo: str
 
 
 # ---------- ROUTES ----------
@@ -106,7 +112,7 @@ def create_match(payload: CreateMatchRequest, user=Depends(verify_token)):
 
     # ---------- Update tablice domaćin ----------
 
-    db.tablica.update_one(
+    db.tables.update_one(
         {
             "liga": liga_oid,
             "klub": domacin_oid,
@@ -124,7 +130,7 @@ def create_match(payload: CreateMatchRequest, user=Depends(verify_token)):
 
     # ---------- Update tablice gost ----------
 
-    db.tablica.update_one(
+    db.tables.update_one(
         {
             "liga": liga_oid,
             "klub": gost_oid,
@@ -141,3 +147,134 @@ def create_match(payload: CreateMatchRequest, user=Depends(verify_token)):
     )
 
     return _serialize(match_doc)
+
+@router.get("/dohvat")
+def get_matches(ligaId: str, user=Depends(verify_token)):
+
+    email = user["email"]
+    liga_oid = _oid(ligaId)
+
+    # --- utakmice ---
+    matches = list(db.matches.find({
+        "liga": liga_oid,
+        "korisnikEmail": email
+    }))
+
+    if not matches:
+        return []
+
+    # --- svi klubovi iz te lige (JEDAN QUERY) ---
+    clubs = list(db.clubs.find({
+        "liga": liga_oid,
+        "korisnikEmail": email
+    }))
+
+    # mapa: id -> naziv
+    club_map = {
+        str(c["_id"]): c["naziv"]
+        for c in clubs
+    }
+    
+    liga = db.leagues.find_one({"_id": liga_oid})
+    liga_naziv = liga["naziv"] if liga else ""
+
+    rezultat = []
+
+    for m in matches:
+        rezultat.append({
+            "kolo": m["kolo"],
+            "domacin": club_map.get(str(m["domacin"]), ""),
+            "domacinGol": m["domacinGol"],
+            "gostiGol": m["gostiGol"],
+            "gost": club_map.get(str(m["gost"]), ""),
+            "ligaNaziv": liga_naziv,
+            "mjesto": m["mjestoIgranja"],
+            "stadion": m["stadionNaziv"],
+            "gledatelji": m["gledateljiBroj"],
+            "datum": m["datum"]
+        })
+        
+    return rezultat
+
+@router.patch("/delete")
+def delete_match(request: DeleteMatchRequest):
+
+    liga_oid = ObjectId(request.liga)
+    domacin_oid = ObjectId(request.domacin)
+    gost_oid = ObjectId(request.gost)
+
+    match = db.matches.find_one({
+        "liga": liga_oid,
+        "domacin": domacin_oid,
+        "gost": gost_oid,
+        "kolo": request.kolo
+    })
+
+    if not match:
+        return {"deleted": 0}
+
+    # ----- BODOVI -----
+    dom_bod = 0
+    gos_bod = 0
+
+    if match["domacinGol"] > match["gostiGol"]:
+        dom_bod = -3
+    elif match["domacinGol"] < match["gostiGol"]:
+        gos_bod = -3
+    else:
+        dom_bod = -1
+        gos_bod = -1
+
+    # ----- UPDATE DOMACIN -----
+    db.tables.update_one(
+        {"liga": liga_oid, "klub": domacin_oid},
+        {
+            "$inc": {
+                "bodovi": dom_bod,
+                "postignutiPogodci": -match["domacinGol"],
+                "primljeniPogodci": -match["gostiGol"],
+                "odigranihDvoboja": -1
+            }
+        }
+    )
+
+    # ----- UPDATE GOST -----
+    db.tables.update_one(
+        {"liga": liga_oid, "klub": gost_oid},
+        {
+            "$inc": {
+                "bodovi": gos_bod,
+                "postignutiPogodci": -match["gostiGol"],
+                "primljeniPogodci": -match["domacinGol"],
+                "odigranihDvoboja": -1
+            }
+        }
+    )
+
+    # ----- DELETE MATCH -----
+    db.matches.delete_one({"_id": match["_id"]})
+
+    return {"deleted": 1}
+
+
+
+@router.get("/one")
+def get_single_match(liga: str, domacin: str, gost: str, kolo: str):
+
+    match = db.matches.find_one({
+        "liga": ObjectId(liga),
+        "domacin": ObjectId(domacin),
+        "gost": ObjectId(gost),
+        "kolo": kolo
+    })
+
+    if not match:
+        return None
+
+    match["_id"] = str(match["_id"])
+    match["liga"] = str(match["liga"])
+    match["domacin"] = str(match["domacin"])
+    match["gost"] = str(match["gost"])
+
+    return match
+

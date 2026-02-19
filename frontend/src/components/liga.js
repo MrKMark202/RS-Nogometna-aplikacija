@@ -14,7 +14,7 @@ LeagueService.interceptors.request.use((request) => {
   return request;
 });
 
-const LigaApi = {
+const LeagueApi = {
   async createLeague(naziv, godinaOsnivanja, drzava, grbLige) {
   try {
     await LeagueService.post("/api/league/create", {
@@ -68,4 +68,4 @@ const LigaApi = {
   },
 };
 
-export default LigaApi;
+export default LeagueApi;

@@ -55,6 +55,24 @@ const ClubApi = {
       return false;
     }
   },
+
+  async deleteClub(clubId) {
+    try {
+      await ClubService.delete("/api/club/delete", {
+        data: { clubId }
+      });
+
+      return true;
+    } catch (err) {
+      const status = err.response?.status;
+
+      if (status === 403) alert("Nemaš pravo brisati ovaj klub.");
+      else if (status === 404) alert("Klub nije pronađen.");
+      else alert("Greška pri brisanju kluba.");
+
+      return false;
+    }
+  }
 };
 
 export default ClubApi;

@@ -34,7 +34,7 @@
 
 <script>
     import { Auth } from '@/components/registracija';
-    import LigaApi from "@/components/liga";
+    import LeagueApi from "@/components/liga";
 
     export default {
         name: "createLIGA",
@@ -73,7 +73,7 @@
                 korisnikEmail: Auth.state.userEmail,
             });
 
-            const success = await LigaApi.createLeague(
+            const success = await LeagueApi.createLeague(
                 this.ligaName,
                 this.ligaYear,
                 this.ligaCountry,

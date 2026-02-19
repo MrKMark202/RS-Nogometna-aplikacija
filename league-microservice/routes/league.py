@@ -43,13 +43,14 @@ def dohvati_lige(user=Depends(verify_token)):
 
     cursor = db.leagues.find(
         {"korisnikEmail": email},
-        {"naziv": 1}
+        {"naziv": 1, "grbLige": 1}
     ).sort("naziv", 1)
 
     return [
         {
             "_id": str(l["_id"]),
-            "naziv": l["naziv"]
+            "naziv": l["naziv"],
+            "grbLige": l.get("grbLige")
         }
         for l in cursor
     ]
@@ -79,19 +80,42 @@ def create_league(payload: CreateLeagueRequest, user=Depends(verify_token)):
 
     return serialize(doc)
 
-
 @router.delete("/delete")
 def delete_league(payload: DeleteLeagueRequest, user=Depends(verify_token)):
     email = user["email"].lower().strip()
+    league_oid = oid(payload.leagueId)
 
-    league_id = oid(payload.leagueId)
+    league = db.leagues.find_one({
+        "_id": league_oid,
+        "korisnikEmail": email
+    })
 
-    league = db.leagues.find_one({"_id": league_id})
     if not league:
         raise HTTPException(status_code=404, detail="Liga nije pronađena")
 
-    if league.get("korisnikEmail") != email:
-        raise HTTPException(status_code=403, detail="Nemaš pravo obrisati ovu ligu")
+    # pronađi sve klubove te lige
+    club_ids = [
+        c["_id"] for c in db.clubs.find(
+            {"liga": league_oid, "korisnikEmail": email},
+            {"_id": 1}
+        )
+    ]
 
-    db.leagues.delete_one({"_id": league_id})
+    print("CLUB IDS:", club_ids)
+
+    # obriši tablice tih klubova
+    db.tables.delete_many({
+        "klub": {"$in": club_ids},
+        "korisnikEmail": email
+    })
+
+    # obriši klubove
+    db.clubs.delete_many({
+        "liga": league_oid,
+        "korisnikEmail": email
+    })
+
+    # obriši ligu
+    db.leagues.delete_one({"_id": league_oid})
+
     return {"result": True}

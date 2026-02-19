@@ -86,7 +86,7 @@
 
         methods: {
             async passwordChange() {
-                let success = await Auth.passwordChange(this.email, this.newPassword, this.pin);
+                let success = await Auth.passwordReset(this.email, this.newPassword, this.pin);
                 console.log("Rezultat promjene lozinke:", success);
 
                 if(success == true) {
