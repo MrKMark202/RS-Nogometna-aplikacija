@@ -12,7 +12,7 @@
           v-model="drawer"
           absolute
           temporary
-          style="background-color: green; width: 30%;"
+          style="background-color: green; width: 20%;"
         >
           <v-list style="padding: 10px">
             <v-list-item-group
@@ -32,11 +32,15 @@
               </v-list-item>
               <hr>
               <v-list-item  to="/KreirajKlub" class="btn_style">
-                ⚽  Kreiraj klub
+                🛡️  Kreiraj klub
+              </v-list-item>
+              <hr>
+              <v-list-item  to="/KreirajIgraca" class="btn_style">
+                🏃‍♂️  Kreiraj igrača
               </v-list-item>
               <hr>
               <v-list-item  to="/KreirajUtakmicu" class="btn_style">
-                🆚  Kreiraj utakmicu
+                ⚽  Kreiraj utakmicu
               </v-list-item>
               <hr>
               <v-list-item  to="/Tablica" class="btn_style">
@@ -45,6 +49,14 @@
               <hr>
               <v-list-item  to="/TekmaPodaci" class="btn_style">
                 📃  Pregled utakmica
+              </v-list-item>
+              <hr>
+              <v-list-item  to="/Transferi" class="btn_style">
+                💸  Transferi
+              </v-list-item>
+              <hr>
+              <v-list-item  to="/PregledUgovora" class="btn_style">
+                📜  Pregled ugovora
               </v-list-item>
               <hr>
               <v-list-item  to="/userSettings" class="btn_style">

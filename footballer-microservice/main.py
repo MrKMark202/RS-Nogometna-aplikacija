@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from routes.transfer import router as transfer_router
+from routes.footballer import router as footballer_router
 
-app = FastAPI(title="transfer-service")
+app = FastAPI(title="footballer-service")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,7 +20,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"service": "transfer", "status": "ok"}
+    return {"service": "footballer", "status": "ok"}
 
 @app.on_event("startup")
 def startup_db_check():
@@ -28,14 +28,14 @@ def startup_db_check():
         raise RuntimeError("MONGO_URI is not set")
 
     db.command("ping")
-    db.transfers.create_index("igracId")
-    db.transfers.create_index("korisnikEmail")
+    db.footballers.create_index("klub")
+    db.footballers.create_index("korisnikEmail")
 
-    print("transfers-microservice connected to MongoDB")
+    print("footballer-microservice connected to MongoDB")
 
-app.include_router(transfer_router, prefix="/api/transfer")
+app.include_router(footballer_router, prefix="/api/footballer")
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", "8002"))
+    port = int(os.getenv("PORT", "8001"))
     uvicorn.run("main:app", host="0.0.0.0", port=port)

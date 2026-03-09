@@ -11,6 +11,7 @@ import passReset from '../views/passReset.vue'
 import Table from '../views/Tablica.vue'
 import TekmaPodaci from '../views/TekmaPodaci.vue'
 import userSettings from '../views/userSettings.vue'
+import k_igrac from '../views/KreirajIgraca.vue'
 
 Vue.use(VueRouter)
 
@@ -66,9 +67,24 @@ const routes = [
     component: TekmaPodaci
   },
   {
+    path: '/Transferi',
+    name: 'Transferi',
+    component: () => import('../views/Transferi.vue')
+  },
+  {
+    path: '/PregledUgovora',
+    name: 'PregledUgovora',
+    component: () => import('../views/PregledUgovora.vue')
+  },
+  {
     path: '/userSettings',
     name: 'Korisničke postavke',
     component:userSettings
+  },
+  {
+    path: '/KreirajIgraca',
+    name: 'KreirajIgraca',
+    component: k_igrac
   }
 ]
 

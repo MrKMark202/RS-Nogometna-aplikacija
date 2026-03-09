@@ -14,12 +14,11 @@ services:
     container_name: league
     env_file:
       - .env
+    depends_on:
+      - auth-microservice
     environment:
       - MONGO_URI=${MONGO_URI}
       - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
-      - VUE_APP_LEAGUE_API=${VUE_APP_LEAGUE_API}
-    depends_on:
-      - auth-microservice
     ports:
       - "8002:8000"
 
@@ -28,8 +27,9 @@ services:
     container_name: club
     env_file:
       - .env
+    depends_on:
+      - league-microservice
     environment:
-      - VUE_APP_CLUB_API=${VUE_APP_CLUB_API}
       - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
       - MONGO_URI=${MONGO_URI}
     ports:
@@ -40,8 +40,12 @@ services:
     container_name: match
     env_file:
       - .env
+    depends_on:
+      - league-microservice
+      - club-microservice
     environment:
       - MONGO_URI=${MONGO_URI}
+      - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
     ports:
       - "8004:8000"
 
@@ -50,30 +54,42 @@ services:
     container_name: table
     env_file:
       - .env
+    depends_on:
+      - match-microservice
+      - league-microservice
+      - club-microservice
     environment:
       - MONGO_URI=${MONGO_URI}
+      - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
     ports:
       - "8005:8000"
       
-  footballer:
+  footballer-microservice:
     build: ./footballer-microservice
     container_name: footballer
     env_file:
       - .env
+    depends_on:
+      - hardhat
     environment:
       - MONGO_URI=${MONGO_URI}
+      - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
     ports:
-      - "8007:8000"
+      - "8006:8000"
 
-  transfers:
+  transfers-microservice:
     build: ./transfers-microservice
     container_name: transfers
     env_file:
       - .env
+    depends_on:
+      - footballer-microservice
+      - hardhat
     environment:
       - MONGO_URI=${MONGO_URI}
+      - VUE_APP_AUTH_API=${VUE_APP_AUTH_API}
     ports:
-      - "8006:8000"
+      - "8007:8000"
   
   frontend:
     build: ./frontend
@@ -86,6 +102,9 @@ services:
       - club-microservice
       - match-microservice
       - table-microservice
+      - footballer-microservice
+      - transfers-microservice
+      - hardhat
     ports:
       - "8080:8080"
     environment:
@@ -93,3 +112,12 @@ services:
       - VUE_APP_LEAGUE_API=${VUE_APP_LEAGUE_API}
       - VUE_APP_CLUB_API=${VUE_APP_CLUB_API}
       - VUE_APP_TABLE_API=${VUE_APP_TABLE_API}
+      - VUE_APP_FOOTBALLER_API=${VUE_APP_FOOTBALLER_API}
+      - VUE_APP_TRANSFER_API=${VUE_APP_TRANSFER_API}
+      - VUE_APP_CONTRACT_ADDRESS=${VUE_APP_CONTRACT_ADDRESS}
+
+  hardhat:
+    build: ./blockchain
+    container_name: hardhat
+    ports:
+      - "8545:8545"
