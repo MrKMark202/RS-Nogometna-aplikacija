@@ -82,7 +82,7 @@ const BlockchainService = {
         return new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
     },
 
-    async registerPlayer(name, clubId, birthDate, slikaIgraca, initialValue = 0, drzavljanstvo = "Nepoznato") {
+    async registerPlayer(name, clubId, birthDate, slikaIgraca, initialValue = 0, drzavljanstvo = "Nepoznato", ugovorTrajeDo = "") {
         try {
             const contract = await this.getContract();
             const tx = await contract.registerPlayer(
@@ -105,7 +105,8 @@ const BlockchainService = {
                 klub: clubId,
                 korisnikEmail: Auth.state.userEmail,
                 blockchainPlayerId: blockchainPlayerId,
-                initialValue: initialValue
+                initialValue: initialValue,
+                ugovorTrajeDo: ugovorTrajeDo
             });
             
             alert("Igrač uspješno kreiran na blockchainu i u bazi! ✅");
@@ -118,7 +119,7 @@ const BlockchainService = {
     },
 
 
-    async transferPlayer(playerId, currentClubId, newClubId, blockchainPlayerId, value = 0) {
+    async transferPlayer(playerId, currentClubId, newClubId, blockchainPlayerId, value = 0, ugovorTrajeDo = "") {
         try {
             const contract = await this.getContract();
             // We pass "PENDING" or similar, the real hash is added to backend after wait()
@@ -132,7 +133,8 @@ const BlockchainService = {
                 datumTransfera: new Date().toISOString().split('T')[0],
                 korisnikEmail: Auth.state.userEmail,
                 transakcijaHash: receipt.transactionHash,
-                vrijednost: value
+                vrijednost: value,
+                ugovorTrajeDo: ugovorTrajeDo
             });
             
             alert("Transfer uspješno obavljen! 💸");
@@ -182,11 +184,24 @@ const BlockchainService = {
                 toClub: c.uKlub || c.klubId,
                 timestamp: c.datum,
                 value: c.vrijednost || 0,
-                tip: c.tip
+                tip: c.tip,
+                ugovorTrajeDo: c.ugovorTrajeDo || ""
             }));
         } catch (err) {
             console.error("BlockchainService: Greška pri dohvaćanju ugovora iz baze:", err);
             return [];
+        }
+    },
+
+    async deletePlayer(igracId) {
+        try {
+            const res = await FootballerService.delete(`/api/footballer/delete/${igracId}`);
+            alert(res.data.message);
+            return res.data;
+        } catch (err) {
+            console.error("deletePlayer error:", err);
+            alert("Greška pri brisanju igrača: " + (err.response?.data?.detail || err.message));
+            throw err;
         }
     }
 };

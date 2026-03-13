@@ -11,3 +11,4 @@ class Transfer(BaseModel):
     korisnikEmail: str
     transakcijaHash: str # Blockchain transaction hash
     vrijednost: int = 0
+    ugovorTrajeDo: str = ""

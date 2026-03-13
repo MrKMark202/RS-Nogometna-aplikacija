@@ -12,4 +12,5 @@ class Footballer(BaseModel):
     korisnikEmail: str
     blockchainPlayerId: int
     initialValue: int = 0
+    ugovorTrajeDo: str = ""
 

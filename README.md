@@ -63,8 +63,10 @@ Ovo je repozitorij za Nogometnu aplikaciju. Projekt za raspodijeljene sustave i 
 - Sklapanje glavne sintakse koda u "main.py"
 - Spajanje na bazu sa "db.py"
 - "Models.py" sadrži pydantic modele za nogometaša
-- "footballer.py" služi za funkcije za nogometaše - create i dohvat
+- "footballer.py" služi za funkcije za nogometaše - create, dohvat i **brisanje**
 - Pri kreiranju igrača, podaci se sinkronizirano spremaju na blockchain i u MongoDB (uključujući početni ugovor u kolekciju `concrats`)
+- **Brisanje igrača** kaskadno briše sve povezane ugovore (`concrats`) i transfere (`transfers`)
+- Dodano polje **ugovorTrajeDo** (istek ugovora) pri kreiranju igrača
 - kreirana "igrac_transfer.js" na frontendu pod folder "components" -> sadrži funkcije za nogometaše i njihove transfere
 
 ### Transfers-microservice
@@ -74,8 +76,9 @@ Ovo je repozitorij za Nogometnu aplikaciju. Projekt za raspodijeljene sustave i 
 - "transfer.py" služi za bilježenje transfera i pregled povijesti transfera
 - Pri svakom transferu, sustav automatski:
   1. Zapisuje transakciju na Blockchain
-  2. Sprema detalje ugovora u MongoDB (`concrats` kolekciju)
+  2. Sprema detalje ugovora u MongoDB (`concrats` kolekciju) zajedno s datumom isteka ugovora
   3. Ažurira trenutni klub igrača u bazi podataka
+  4. Prethodne ugovore tog igrača označava kao **"Raskid ugovora"**
 - koristi istu "igrac_transfer.js" komponentu na frontendu
 
 ### Hard-hat (Blockchain)

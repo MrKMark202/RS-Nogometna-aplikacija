@@ -32,6 +32,11 @@
             <v-col>
               <h2 style="color: black;">Povijest transfera za: {{ selectedPlayer.ime }}</h2>
             </v-col>
+            <v-col cols="auto">
+              <v-btn @click="confirmDeletePlayer" :loading="isDeleting" style="color: white; text-decoration: solid; background-color: red; margin-bottom: 50px;">
+                Izbriši igrača
+              </v-btn>
+            </v-col>
           </v-row>
           
           <v-simple-table v-if="contracts.length > 0" class="mt-8">
@@ -42,6 +47,7 @@
                   <th class="text-left">U klub</th>
                   <th class="text-left">Datum transfera</th>
                   <th class="text-left">Vrijednost (€)</th>
+                  <th class="text-left">Ugovor traje do</th>
                 </tr>
               </thead>
               <tbody>
@@ -50,6 +56,9 @@
                   <td>{{ getClubName(item.toClub) }}</td>
                   <td>{{ item.timestamp }}</td>
                   <td>{{ (item.value || 0).toLocaleString() }} €</td>
+                  <td :style="{ color: item.ugovorTrajeDo === 'Raskid ugovora' ? 'red' : 'black' }">
+                    {{ item.ugovorTrajeDo && item.ugovorTrajeDo !== '' ? item.ugovorTrajeDo : '---' }}
+                  </td>
                 </tr>
               </tbody>
             </template>
@@ -80,6 +89,7 @@
       contracts: [],
       selectedPlayer: null,
       loading: false,
+      isDeleting: false,
     }),
 
     async mounted() {
@@ -112,44 +122,30 @@
           if (!this.selectedPlayer) return;
           
           const pId = this.selectedPlayer._id;
-          const bId = this.selectedPlayer.blockchainPlayerId;
-          console.log("PregledUgovora: Odabran igrač:", this.selectedPlayer.ime, "DB ID:", pId, "Blockchain ID:", bId);
+          console.log("PregledUgovora: Odabran igrač:", this.selectedPlayer.ime, "DB ID:", pId);
 
-          if (!pId || bId === undefined) {
-              alert("Ovaj igrač nema ispravne ID-ove.");
+          if (!pId) {
+              alert("Ovaj igrač nema ispravan ID.");
               this.contracts = [];
               return;
           }
           
           this.loading = true;
           try {
-              // Fetching from BOTH sources
-              // 1. Metadata from Blockchain (as secondary/verification)
-              const blockchainContracts = await BlockchainService.getPlayerContracts(bId);
-              // 2. Values and full history from Database (PRIMARY SOURCE)
+              // Fetch contract history from Database (PRIMARY SOURCE)
               const dbContracts = await BlockchainService.getDatabaseContracts(pId);
               
-              console.log("PregledUgovora: Blockchain podaci:", blockchainContracts);
               console.log("PregledUgovora: Database podaci:", dbContracts);
 
-              // If database has contracts, use them as the source of truth
               if (dbContracts.length > 0) {
                   this.contracts = dbContracts.map(dbc => ({
                       fromClub: dbc.fromClub,
                       toClub: dbc.toClub,
                       timestamp: dbc.timestamp,
-                      value: dbc.value
+                      value: dbc.value,
+                      ugovorTrajeDo: dbc.ugovorTrajeDo || ""
                   }));
                   console.log("PregledUgovora: Koristim podatke iz baze.");
-              } else if (blockchainContracts.length > 0) {
-                  // Fallback to blockchain if database is empty (e.g. for legacy entries)
-                  this.contracts = blockchainContracts.map(bc => ({
-                      fromClub: bc.fromClub,
-                      toClub: bc.toClub,
-                      timestamp: bc.timestamp,
-                      value: bc.value
-                  }));
-                  console.log("PregledUgovora: Koristim blockchain podatke (fallback).");
               } else {
                   this.contracts = [];
               }
@@ -160,6 +156,27 @@
               this.contracts = [];
           } finally {
               this.loading = false;
+          }
+      },
+
+      async confirmDeletePlayer() {
+          if (!this.selectedPlayer) return;
+          if (confirm(`Jeste li sigurni da želite izbrisati igrača ${this.selectedPlayer.ime} i sve njegove podatke? Ovaj postupak je nepovratan.`)) {
+              await this.deletePlayer();
+          }
+      },
+
+      async deletePlayer() {
+          this.isDeleting = true;
+          try {
+              await BlockchainService.deletePlayer(this.selectedPlayer._id);
+              this.selectedPlayer = null;
+              this.contracts = [];
+              await this.dohvatiPodatke(); // Refresh list
+          } catch (error) {
+              console.error("Greška pri brisanju:", error);
+          } finally {
+              this.isDeleting = false;
           }
       },
 

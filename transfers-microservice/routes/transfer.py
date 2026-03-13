@@ -17,15 +17,27 @@ async def record_transfer(transfer: Transfer, user=Depends(verify_token)):
         transfer_id = str(result.inserted_id)
         
         # Save contract to 'concrats' collection
-        db.concrats.insert_one({
+        result_contract = db.concrats.insert_one({
             "igracId": transfer_data["igracId"],
             "klubId": transfer_data["noviKlubId"],
             "vrijednost": transfer_data.get("vrijednost", 0),
             "datum": transfer_data["datumTransfera"],
             "tip": "TRANSFER",
             "izKluba": transfer_data["stariKlubId"],
-            "uKlub": transfer_data["noviKlubId"]
+            "uKlub": transfer_data["noviKlubId"],
+            "ugovorTrajeDo": transfer_data.get("ugovorTrajeDo") or ""
         })
+        new_contract_id = result_contract.inserted_id
+        
+        # Update previous contracts for this player to "Raskid ugovora"
+        # We find all contracts for this player and update those that are NOT the one we just inserted
+        db.concrats.update_many(
+            {
+                "igracId": transfer_data["igracId"],
+                "_id": {"$ne": new_contract_id}
+            },
+            {"$set": {"ugovorTrajeDo": "Raskid ugovora"}}
+        )
         
         # Update current club of the player in footballer-microservice database (shared DB)
         db.footballers.update_one(

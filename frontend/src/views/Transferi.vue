@@ -32,6 +32,53 @@
           item-value="_id"
         ></v-select>
 
+        <v-col
+            cols="12"
+            sm="6"
+            md="4"
+            v-if="selectedPlayer"
+        >
+            <v-dialog
+                ref="expiryDialog"
+                v-model="expiryModal"
+                :return-value.sync="expiryDate"
+                width="80%"
+            >
+                <template v-slot:activator="{ on, attrs }">
+                    <v-text-field
+                        v-model="expiryDate"
+                        label="Datum isteka NOVOG ugovora"
+                        prepend-icon="mdi-calendar-clock"
+                        readonly
+                        v-bind="attrs"
+                        v-on="on"
+                        :rules="[rules.required]"
+                    ></v-text-field>
+                </template>
+                <v-date-picker
+                    v-model="expiryDate"
+                    scrollable
+                    :min="minDate"
+                >
+                    <v-spacer></v-spacer>
+                    <v-btn
+                        text
+                        color="primary"
+                        @click="$refs.expiryDialog.save(null); expiryModal = false"
+                    >
+                        Cancel
+                    </v-btn>
+                    <v-btn
+                        text
+                        color="primary"
+                        @click="$refs.expiryDialog.save(expiryDate)"
+                    >
+                        OK
+                    </v-btn>
+                </v-date-picker>
+            </v-dialog>
+        </v-col>
+
         <v-text-field
           v-model.number="transferValue"
           label="Vrijednost transfera (€)"
@@ -68,6 +115,8 @@
       selectedPlayer: null,
       selectedClub: "",
       transferValue: 0,
+      expiryDate: null,
+      expiryModal: false,
       form: false,
       isLoading: false,
       rules: {
@@ -80,6 +129,12 @@
             if (!this.selectedPlayer) return "";
             const club = this.clubs.find(c => c._id === this.selectedPlayer.klub);
             return club ? club.naziv : "Nepoznat klub";
+        },
+        minDate() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return tomorrow.toISOString().substr(0, 10);
         }
     },
 
@@ -122,7 +177,8 @@
             this.selectedPlayer.klub,
             this.selectedClub,
             this.selectedPlayer.blockchainPlayerId,
-            this.transferValue
+            this.transferValue,
+            this.expiryDate
           );
 
           
